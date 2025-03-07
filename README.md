@@ -21,3 +21,7 @@ Page Content: Displays a list of API keys. Operations: Users can Add, Edit, and 
 Page Content: Displays a list of files. File Information: File Name Creation Date Creator Status (e.g., whether it has been updated, the app it’s being used in) Operations: Upload Files Download Files Delete Files Migration Module
 
 Top of the Page: Contains two switchable menu options: Export Import Operations: Export: Users can export apps, tables, and table data. Import: Users can import apps and tables. Technology Stack and Data Interaction Requirements Technology Stack: Develop the front-end using Vue3 + TypeScript to build a modern, component-based application. Data Interaction: Use json-server to simulate real API calls for data addition, deletion, and modification. This will support fetching, editing, and deleting data for all the above modules.
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+npm run dev
+npx json-server --watch db.json --port 3001
