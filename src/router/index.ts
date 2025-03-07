@@ -2,6 +2,7 @@ import Login from '../views/Login.vue'
 import MyPage from '../views/MyPage.vue'
 import PersonalSettings from '../views/PersonalSettings.vue'
 import ResourceManagement from '../views/ResourceManagement.vue'
+import AdminSettings from '../views/AdminSettings.vue'
 import AppModule from '../views/modules/AppModule.vue'
 import TableModule from '../views/modules/TableModule.vue'
 import EndpointModule from '../views/modules/EndpointModule.vue'
@@ -74,6 +75,11 @@ const routes = [
         path: 'resource-management',
         name: 'ResourceManagement',
         component: ResourceManagement
+      },
+      {
+        path: 'admin-settings',
+        name: 'AdminSettings',
+        component: AdminSettings
       }
     ]
   }
