@@ -1,5 +1,7 @@
 import Login from '../views/Login.vue'
 import MyPage from '../views/MyPage.vue'
+import PersonalSettings from '../views/PersonalSettings.vue'
+import ResourceManagement from '../views/ResourceManagement.vue'
 import AppModule from '../views/modules/AppModule.vue'
 import TableModule from '../views/modules/TableModule.vue'
 import EndpointModule from '../views/modules/EndpointModule.vue'
@@ -62,6 +64,16 @@ const routes = [
         path: 'migration',
         name: 'Migration',
         component: MigrationModule
+      },
+      {
+        path: 'personal-settings',
+        name: 'PersonalSettings',
+        component: PersonalSettings
+      },
+      {
+        path: 'resource-management',
+        name: 'ResourceManagement',
+        component: ResourceManagement
       }
     ]
   }

@@ -45,6 +45,11 @@ function selectWorkspace(workspace) {
   workspaceStore.setCurrentWorkspace(workspace)
   showWorkspaceDropdown.value = false
 }
+
+function navigateToSettings(path: string) {
+  router.push(`/mypage/${path}`)
+  showUserPopup.value = false
+}
 </script>
 
 <template>
@@ -174,13 +179,22 @@ function selectWorkspace(workspace) {
           </div>
           
           <div class="space-y-2">
-            <button class="w-full text-left text-sm hover:bg-gray-100 p-2 rounded">
+            <button 
+              @click="navigateToSettings('personal-settings')"
+              class="w-full text-left text-sm hover:bg-gray-100 p-2 rounded"
+            >
               Personal Settings
             </button>
-            <button class="w-full text-left text-sm hover:bg-gray-100 p-2 rounded">
+            <button 
+              @click="navigateToSettings('resource-management')"
+              class="w-full text-left text-sm hover:bg-gray-100 p-2 rounded"
+            >
               Resource Management
             </button>
-            <button class="w-full text-left text-sm hover:bg-gray-100 p-2 rounded">
+            <button 
+              @click="navigateToSettings('admin-settings')"
+              class="w-full text-left text-sm hover:bg-gray-100 p-2 rounded"
+            >
               Administration Settings
             </button>
             <button 
