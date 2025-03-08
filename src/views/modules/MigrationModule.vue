@@ -4,25 +4,13 @@ import { useWorkspaceStore } from '../../stores/workspace'
 import axios from 'axios'
 
 const workspaceStore = useWorkspaceStore()
-const migrations = ref([])
+const activeTab = ref('export') // 'export' or 'import'
 const apps = ref([])
-const tables = ref([])
 const loading = ref(false)
 const error = ref('')
-const activeTab = ref('export') // 'export' or 'import'
-const showNewMigrationModal = ref(false)
-const newMigration = ref({
-  name: '',
-  type: 'export',
-  content: {
-    apps: [],
-    tables: []
-  }
-})
-const selectedApps = ref([])
-const selectedTables = ref([])
-const importFile = ref(null)
-const showWorkspaceDropdown = ref(false)
+const success = ref('')
+const selectedApps = ref<number[]>([])
+const uploadedFile = ref<File | null>(null)
 
 const currentWorkspaceId = computed(() => {
   return workspaceStore.currentWorkspace?.id
@@ -30,40 +18,21 @@ const currentWorkspaceId = computed(() => {
 
 onMounted(() => {
   if (currentWorkspaceId.value) {
-    fetchMigrations()
     fetchApps()
-    fetchTables()
   }
 })
 
 watch(() => currentWorkspaceId.value, () => {
   if (currentWorkspaceId.value) {
-    fetchMigrations()
     fetchApps()
-    fetchTables()
   }
 })
 
-async function fetchMigrations() {
+async function fetchApps() {
   if (!currentWorkspaceId.value) return
   
   loading.value = true
   error.value = ''
-  
-  try {
-    const response = await axios.get('http://localhost:3001/migrations', {
-      params: { workspaceId: currentWorkspaceId.value }
-    })
-    migrations.value = response.data
-  } catch (err) {
-    error.value = 'Failed to fetch migrations'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function fetchApps() {
-  if (!currentWorkspaceId.value) return
   
   try {
     const response = await axios.get('http://localhost:3001/apps', {
@@ -71,42 +40,18 @@ async function fetchApps() {
     })
     apps.value = response.data
   } catch (err) {
-    console.error('Failed to fetch apps', err)
+    error.value = 'Failed to fetch apps'
+  } finally {
+    loading.value = false
   }
 }
 
-async function fetchTables() {
-  if (!currentWorkspaceId.value) return
-  
-  try {
-    const response = await axios.get('http://localhost:3001/tables', {
-      params: { workspaceId: currentWorkspaceId.value }
-    })
-    tables.value = response.data
-  } catch (err) {
-    console.error('Failed to fetch tables', err)
-  }
-}
-
-function setActiveTab(tab) {
+function setActiveTab(tab: string) {
   activeTab.value = tab
-}
-
-function openNewMigrationModal() {
-  newMigration.value = {
-    name: '',
-    type: activeTab.value,
-    content: {
-      apps: [],
-      tables: []
-    }
-  }
   selectedApps.value = []
-  selectedTables.value = []
-  showNewMigrationModal.value = true
 }
 
-function toggleAppSelection(appId) {
+function toggleAppSelection(appId: number) {
   const index = selectedApps.value.indexOf(appId)
   if (index === -1) {
     selectedApps.value.push(appId)
@@ -115,294 +60,234 @@ function toggleAppSelection(appId) {
   }
 }
 
-function toggleTableSelection(tableId) {
-  const index = selectedTables.value.indexOf(tableId)
-  if (index === -1) {
-    selectedTables.value.push(tableId)
-  } else {
-    selectedTables.value.splice(index, 1)
+async function exportApps() {
+  if (selectedApps.value.length === 0) {
+    error.value = 'Please select at least one app to export'
+    return
   }
-}
-
-async function createMigration() {
-  if (!newMigration.value.name || !currentWorkspaceId.value) return
+  
+  loading.value = true
+  error.value = ''
+  success.value = ''
   
   try {
-    await axios.post('http://localhost:3001/migrations', {
-      name: newMigration.value.name,
-      type: activeTab.value,
-      date: new Date().toISOString(),
-      content: {
-        apps: selectedApps.value,
-        tables: selectedTables.value
-      },
-      workspaceId: currentWorkspaceId.value
-    })
+    // In a real app, this would trigger a server-side export process
+    // Here we're just simulating it
+    const selectedAppData = apps.value.filter(app => selectedApps.value.includes(app.id))
+    const exportData = {
+      apps: selectedAppData,
+      version: '1.0.0', // Current app version
+      exportDate: new Date().toISOString()
+    }
     
-    showNewMigrationModal.value = false
-    await fetchMigrations()
+    // Simulate file download
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `app-export-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    
+    success.value = 'Apps exported successfully'
   } catch (err) {
-    error.value = 'Failed to create migration'
+    error.value = 'Failed to export apps'
+  } finally {
+    loading.value = false
   }
 }
 
-function importMigration() {
-  // In a real app, this would handle actual file import
-  // Here we're just showing an alert
-  alert('Import functionality would be implemented here')
+function handleFileUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.files && input.files.length > 0) {
+    uploadedFile.value = input.files[0]
+  }
 }
 
-function getAppNames(appIds) {
-  return appIds.map(id => {
-    const app = apps.value.find(a => a.id === id)
-    return app ? app.name : `App ${id}`
-  }).join(', ')
-}
-
-function getTableNames(tableIds) {
-  return tableIds.map(id => {
-    const table = tables.value.find(t => t.id === id)
-    return table ? table.name : `Table ${id}`
-  }).join(', ')
-}
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleString()
+async function importApps() {
+  if (!uploadedFile.value) {
+    error.value = 'Please select a file to import'
+    return
+  }
+  
+  loading.value = true
+  error.value = ''
+  success.value = ''
+  
+  try {
+    // In a real app, this would handle the actual file upload and import process
+    // Here we're just simulating it
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      try {
+        const importData = JSON.parse(e.target?.result as string)
+        
+        // Version check
+        const currentVersion = '1.0.0' // Current app version
+        if (importData.version > currentVersion) {
+          error.value = 'Cannot import data from a newer version of the application'
+          loading.value = false
+          return
+        }
+        
+        // Simulate import process
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        success.value = 'Apps imported successfully'
+        uploadedFile.value = null
+        // Reset file input
+        const fileInput = document.getElementById('file-upload') as HTMLInputElement
+        if (fileInput) fileInput.value = ''
+      } catch (err) {
+        error.value = 'Invalid import file format'
+      }
+    }
+    reader.readAsText(uploadedFile.value)
+  } catch (err) {
+    error.value = 'Failed to import apps'
+    loading.value = false
+  }
 }
 </script>
 
 <template>
   <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">Migrations</h1>
-      <button 
-        @click="openNewMigrationModal"
-        class="btn btn-primary"
-      >
-        {{ activeTab === 'export' ? 'New Export' : 'New Import' }}
-      </button>
-    </div>
-    
-    <!-- Tab Navigation -->
-    <div class="flex border-b border-gray-200 mb-6">
-      <button
-        @click="setActiveTab('export')"
-        class="py-2 px-4 font-medium text-sm focus:outline-none"
-        :class="activeTab === 'export' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
-      >
-        Export
-      </button>
-      <button
-        @click="setActiveTab('import')"
-        class="py-2 px-4 font-medium text-sm focus:outline-none"
-        :class="activeTab === 'import' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
-      >
-        Import
-      </button>
-    </div>
-    
-    <div v-if="error" class="mb-4 p-3 bg-red-100 text-red-700 rounded">
-      {{ error }}
-    </div>
-    
-    <!-- Export Tab -->
-    <div v-if="activeTab === 'export'">
-      <div v-if="loading" class="flex justify-center my-8">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+    <div class="max-w-6xl mx-auto">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">Migration</h1>
       
-      <div v-else-if="migrations.filter(m => m.type === 'export').length === 0" class="text-center my-8 text-gray-500">
-        No exports found. Create a new export to get started.
-      </div>
-      
-      <div v-else class="space-y-4">
-        <div 
-          v-for="migration in migrations.filter(m => m.type === 'export')" 
-          :key="migration.id"
-          class="bg-white rounded-lg shadow p-4"
+      <!-- Tab Navigation -->
+      <div class="flex border-b border-gray-200 mb-6">
+        <button
+          @click="setActiveTab('export')"
+          class="py-2 px-4 font-medium text-sm focus:outline-none"
+          :class="activeTab === 'export' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
         >
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium text-lg">{{ migration.name }}</h3>
-              <p class="text-sm text-gray-500 mt-1">{{ formatDate(migration.date) }}</p>
-              
-              <div class="mt-3 space-y-2">
-                <div v-if="migration.content.apps && migration.content.apps.length > 0">
-                  <p class="text-sm font-medium">Apps:</p>
-                  <p class="text-sm text-gray-600">{{ getAppNames(migration.content.apps) }}</p>
-                </div>
-                
-                <div v-if="migration.content.tables && migration.content.tables.length > 0">
-                  <p class="text-sm font-medium">Tables:</p>
-                  <p class="text-sm text-gray-600">{{ getTableNames(migration.content.tables) }}</p>
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              class="btn btn-secondary text-sm"
-              @click="alert('Download export file')"
+          Export
+        </button>
+        <button
+          @click="setActiveTab('import')"
+          class="py-2 px-4 font-medium text-sm focus:outline-none"
+          :class="activeTab === 'import' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
+        >
+          Import
+        </button>
+      </div>
+      
+      <!-- Success Message -->
+      <div 
+        v-if="success"
+        class="mb-4 p-3 bg-green-100 text-green-700 rounded flex items-center justify-between"
+      >
+        {{ success }}
+        <button @click="success = ''" class="text-green-700 hover:text-green-900">×</button>
+      </div>
+      
+      <!-- Error Message -->
+      <div 
+        v-if="error"
+        class="mb-4 p-3 bg-red-100 text-red-700 rounded flex items-center justify-between"
+      >
+        {{ error }}
+        <button @click="error = ''" class="text-red-700 hover:text-red-900">×</button>
+      </div>
+      
+      <!-- Export Tab Content -->
+      <div v-if="activeTab === 'export'" class="space-y-6">
+        <div v-if="loading" class="flex justify-center my-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+        
+        <div v-else-if="apps.length === 0" class="text-center my-8 text-gray-500">
+          No apps available for export.
+        </div>
+        
+        <div v-else class="bg-white rounded-lg shadow overflow-hidden">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  App Name
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Engine Version
+                </th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Select
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="app in apps" :key="app.id">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{ app.name }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">1.0.0</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                  <input 
+                    type="checkbox"
+                    :checked="selectedApps.includes(app.id)"
+                    @change="toggleAppSelection(app.id)"
+                    class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="flex justify-end">
+          <button 
+            @click="exportApps"
+            class="btn btn-primary"
+            :disabled="selectedApps.length === 0 || loading"
+          >
+            {{ loading ? 'Exporting...' : 'Export Selected' }}
+          </button>
+        </div>
+      </div>
+      
+      <!-- Import Tab Content -->
+      <div v-else class="space-y-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="mb-6">
+            <label 
+              for="file-upload"
+              class="block text-primary hover:text-primary-dark font-medium cursor-pointer"
             >
-              Download
+              Upload ZIP File
+            </label>
+            <input
+              id="file-upload"
+              type="file"
+              accept=".json,.zip"
+              class="hidden"
+              @change="handleFileUpload"
+            />
+          </div>
+          
+          <p class="text-sm text-gray-600 mb-6">
+            Please ensure the folder structure matches the exported ZIP file.
+          </p>
+          
+          <div v-if="uploadedFile" class="mb-4">
+            <p class="text-sm text-gray-700">
+              Selected file: {{ uploadedFile.name }}
+            </p>
+          </div>
+          
+          <div class="flex justify-end">
+            <button 
+              @click="importApps"
+              class="btn btn-primary"
+              :disabled="!uploadedFile || loading"
+            >
+              {{ loading ? 'Importing...' : 'Import' }}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Import Tab -->
-    <div v-else-if="activeTab === 'import'">
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-medium mb-4">Import Migration</h2>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Migration File</label>
-            <input 
-              type="file"
-              class="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-full file:border-0
-                file:text-sm file:font-semibold
-                file:bg-primary file:text-white
-                hover:file:bg-primary-dark"
-            />
-          </div>
-          
-          <button 
-            @click="importMigration"
-            class="btn btn-primary"
-          >
-            Import
-          </button>
-        </div>
-      </div>
-      
-      <h3 class="font-medium text-lg mb-4">Import History</h3>
-      
-      <div v-if="loading" class="flex justify-center my-8">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-      
-      <div v-else-if="migrations.filter(m => m.type === 'import').length === 0" class="text-center my-8 text-gray-500">
-        No imports found.
-      </div>
-      
-      <div v-else class="space-y-4">
-        <div 
-          v-for="migration in migrations.filter(m => m.type === 'import')" 
-          :key="migration.id"
-          class="bg-white rounded-lg shadow p-4"
-        >
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium text-lg">{{ migration.name }}</h3>
-              <p class="text-sm text-gray-500 mt-1">{{ formatDate(migration.date) }}</p>
-              
-              <div class="mt-3 space-y-2">
-                <div v-if="migration.content.apps && migration.content.apps.length > 0">
-                  <p class="text-sm font-medium">Apps:</p>
-                  <p class="text-sm text-gray-600">{{ getAppNames(migration.content.apps) }}</p>
-                </div>
-                
-                <div v-if="migration.content.tables && migration.content.tables.length > 0">
-                  <p class="text-sm font-medium">Tables:</p>
-                  <p class="text-sm text-gray-600">{{ getTableNames(migration.content.tables) }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- New Migration Modal -->
-    <div v-if="showNewMigrationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h2 class="text-xl font-bold mb-4">Create New {{ activeTab === 'export' ? 'Export' : 'Import' }}</h2>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input 
-              v-model="newMigration.name"
-              type="text"
-              class="input"
-              placeholder="Enter a name for this migration"
-            />
-          </div>
-          
-          <div v-if="activeTab === 'export'">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Select Apps</label>
-            <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2">
-              <div 
-                v-for="app in apps" 
-                :key="app.id"
-                class="flex items-center p-2 hover:bg-gray-50"
-              >
-                <input 
-                  type="checkbox"
-                  :id="`app-${app.id}`"
-                  :value="app.id"
-                  v-model="selectedApps"
-                  class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                />
-                <label :for="`app-${app.id}`" class="ml-2 block text-sm text-gray-900">
-                  {{ app.name }}
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          <div v-if="activeTab === 'export'">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Select Tables</label>
-            <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2">
-              <div 
-                v-for="table in tables" 
-                :key="table.id"
-                class="flex items-center p-2 hover:bg-gray-50"
-              >
-                <input 
-                  type="checkbox"
-                  :id="`table-${table.id}`"
-                  :value="table.id"
-                  v-model="selectedTables"
-                  class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                />
-                <label :for="`table-${table.id}`" class="ml-2 block text-sm text-gray-900">
-                  {{ table.name }}
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          <div v-if="activeTab === 'import'">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Import File</label>
-            <input 
-              type="file"
-              class="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-full file:border-0
-                file:text-sm file:font-semibold
-                file:bg-primary file:text-white
-                hover:file:bg-primary-dark"
-            />
-          </div>
-        </div>
-        
-        <div class="flex justify-end space-x-2 mt-6">
-          <button 
-            @click="showNewMigrationModal = false"
-            class="btn btn-secondary"
-          >
-            Cancel
-          </button>
-          <button 
-            @click="createMigration"
-            class="btn btn-primary"
-          >
-            {{ activeTab === 'export' ? 'Export' : 'Import' }}
-          </button>
         </div>
       </div>
     </div>
