@@ -6,145 +6,170 @@ import axios from 'axios'
 
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
+const activeTab = ref('tenant') // 'tenant', 'workspace', or 'user'
 const loading = ref(false)
 const error = ref('')
 const success = ref('')
-const resources = ref([])
-const showNewResourceModal = ref(false)
-const showEditResourceModal = ref(false)
-const newResource = ref({
-  name: '',
-  type: 'cpu', // cpu, memory, storage, network
-  limit: 0,
-  used: 0,
-  status: 'active'
-})
-const editingResource = ref(null)
 
-const resourceTypes = [
-  { value: 'cpu', label: 'CPU' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'storage', label: 'Storage' },
-  { value: 'network', label: 'Network' }
-]
+// Tenant Management Data
+const tenants = ref([])
+const showNewTenantModal = ref(false)
+const showEditTenantModal = ref(false)
+const editingTenant = ref(null)
 
-const usagePercentage = computed(() => (resource) => {
-  return ((resource.used / resource.limit) * 100).toFixed(1)
-})
+// Workspace Management Data
+const workspaces = ref([])
+const showAssignWorkspaceModal = ref(false)
+const selectedWorkspace = ref(null)
+
+// User Management Data
+const users = ref([])
 
 onMounted(async () => {
-  await fetchResources()
+  await fetchData()
 })
 
-async function fetchResources() {
-  if (!authStore.user?.id) return
-  
+async function fetchData() {
   loading.value = true
   error.value = ''
   
   try {
-    const response = await axios.get('http://localhost:3001/resources', {
-      params: { userId: authStore.user.id }
-    })
-    resources.value = response.data
+    switch (activeTab.value) {
+      case 'tenant':
+        await fetchTenants()
+        break
+      case 'workspace':
+        await fetchWorkspaces()
+        break
+      case 'user':
+        await fetchUsers()
+        break
+    }
   } catch (err) {
-    error.value = 'Failed to fetch resources'
+    error.value = 'Failed to fetch data'
   } finally {
     loading.value = false
   }
 }
 
-function openNewResourceModal() {
-  newResource.value = {
-    name: '',
-    type: 'cpu',
-    limit: 0,
-    used: 0,
-    status: 'active'
-  }
-  showNewResourceModal.value = true
+async function fetchTenants() {
+  const response = await axios.get('http://localhost:3001/tenants')
+  tenants.value = response.data
 }
 
-async function createResource() {
-  if (!authStore.user?.id) return
-  
-  loading.value = true
-  error.value = ''
-  success.value = ''
+async function fetchWorkspaces() {
+  const response = await axios.get('http://localhost:3001/workspaces')
+  workspaces.value = response.data
+}
+
+async function fetchUsers() {
+  const response = await axios.get('http://localhost:3001/users')
+  users.value = response.data
+}
+
+function setActiveTab(tab: string) {
+  activeTab.value = tab
+  fetchData()
+}
+
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleString()
+}
+
+// Tenant Management Functions
+async function stopTenant(tenantId: number) {
+  try {
+    await axios.put(`http://localhost:3001/tenants/${tenantId}`, { status: 'Stopped' })
+    success.value = 'Tenant stopped successfully'
+    await fetchTenants()
+  } catch (err) {
+    error.value = 'Failed to stop tenant'
+  }
+}
+
+async function deleteTenant(tenantId: number) {
+  if (!confirm('Are you sure you want to delete this tenant?')) return
   
   try {
-    await axios.post('http://localhost:3001/resources', {
-      ...newResource.value,
-      userId: authStore.user.id,
-      workspaceId: workspaceStore.currentWorkspace?.id
-    })
-    
-    showNewResourceModal.value = false
-    success.value = 'Resource created successfully'
-    await fetchResources()
+    await axios.delete(`http://localhost:3001/tenants/${tenantId}`)
+    success.value = 'Tenant deleted successfully'
+    await fetchTenants()
   } catch (err) {
-    error.value = 'Failed to create resource'
-  } finally {
-    loading.value = false
+    error.value = 'Failed to delete tenant'
   }
 }
 
-function openEditModal(resource) {
-  editingResource.value = { ...resource }
-  showEditResourceModal.value = true
+// Workspace Management Functions
+async function assignWorkspace(workspaceId: number) {
+  try {
+    await axios.put(`http://localhost:3001/workspaces/${workspaceId}/assign`)
+    success.value = 'Workspace assigned successfully'
+    await fetchWorkspaces()
+  } catch (err) {
+    error.value = 'Failed to assign workspace'
+  }
 }
 
-async function updateResource() {
-  if (!editingResource.value) return
-  
-  loading.value = true
-  error.value = ''
-  success.value = ''
+async function unassignWorkspace(workspaceId: number) {
+  try {
+    await axios.put(`http://localhost:3001/workspaces/${workspaceId}/unassign`)
+    success.value = 'Workspace unassigned successfully'
+    await fetchWorkspaces()
+  } catch (err) {
+    error.value = 'Failed to unassign workspace'
+  }
+}
+
+// User Management Functions
+async function deleteUser(userId: number) {
+  if (!confirm('Are you sure you want to delete this user?')) return
   
   try {
-    await axios.put(`http://localhost:3001/resources/${editingResource.value.id}`, editingResource.value)
-    showEditResourceModal.value = false
-    success.value = 'Resource updated successfully'
-    await fetchResources()
+    await axios.delete(`http://localhost:3001/users/${userId}`)
+    success.value = 'User deleted successfully'
+    await fetchUsers()
   } catch (err) {
-    error.value = 'Failed to update resource'
-  } finally {
-    loading.value = false
+    error.value = 'Failed to delete user'
   }
 }
 
-async function deleteResource(id: number) {
-  if (!confirm('Are you sure you want to delete this resource?')) return
-  
-  loading.value = true
-  error.value = ''
-  
+async function reissueUserCredentials(userId: number) {
   try {
-    await axios.delete(`http://localhost:3001/resources/${id}`)
-    success.value = 'Resource deleted successfully'
-    await fetchResources()
+    await axios.post(`http://localhost:3001/users/${userId}/reissue`)
+    success.value = 'User credentials reissued successfully'
   } catch (err) {
-    error.value = 'Failed to delete resource'
-  } finally {
-    loading.value = false
+    error.value = 'Failed to reissue user credentials'
   }
-}
-
-function getResourceTypeLabel(type: string) {
-  return resourceTypes.find(t => t.value === type)?.label || type
 }
 </script>
 
 <template>
   <div class="p-6">
     <div class="max-w-6xl mx-auto">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">Resource Management</h1>
-        <button 
-          @click="openNewResourceModal"
-          class="btn btn-primary"
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">Resource Management</h1>
+      
+      <!-- Tab Navigation -->
+      <div class="flex border-b border-gray-200 mb-6">
+        <button
+          @click="setActiveTab('tenant')"
+          class="py-2 px-4 font-medium text-sm focus:outline-none"
+          :class="activeTab === 'tenant' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
         >
-          Add Resource
+          Tenant Management
+        </button>
+        <button
+          @click="setActiveTab('workspace')"
+          class="py-2 px-4 font-medium text-sm focus:outline-none"
+          :class="activeTab === 'workspace' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
+        >
+          Workspace Management
+        </button>
+        <button
+          @click="setActiveTab('user')"
+          class="py-2 px-4 font-medium text-sm focus:outline-none"
+          :class="activeTab === 'user' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'"
+        >
+          User Management
         </button>
       </div>
       
@@ -171,221 +196,242 @@ function getResourceTypeLabel(type: string) {
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
       
-      <!-- Resources Grid -->
-      <div v-else-if="resources.length === 0" class="text-center my-8 text-gray-500">
-        No resources found. Add a resource to get started.
-      </div>
-      
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div 
-          v-for="resource in resources" 
-          :key="resource.id"
-          class="bg-white rounded-lg shadow-md p-6"
-        >
-          <div class="flex justify-between items-start mb-4">
-            <div>
-              <h3 class="text-lg font-medium text-gray-900">{{ resource.name }}</h3>
-              <p class="text-sm text-gray-500">{{ getResourceTypeLabel(resource.type) }}</p>
-            </div>
-            <div class="flex space-x-2">
-              <button 
-                @click="openEditModal(resource)"
-                class="text-gray-400 hover:text-gray-500"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-              </button>
-              <button 
-                @click="deleteResource(resource.id)"
-                class="text-gray-400 hover:text-red-500"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-          <div class="space-y-4">
-            <div>
-              <div class="flex justify-between text-sm mb-1">
-                <span class="text-gray-500">Usage</span>
-                <span class="font-medium">{{ usagePercentage(resource) }}%</span>
-              </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  class="h-2 rounded-full"
+      <!-- Tenant Management Tab -->
+      <div v-else-if="activeTab === 'tenant'" class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tenant Name
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Company Name
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created Date
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created By
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Workspaces
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Users
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="tenant in tenants" :key="tenant.id">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ tenant.companyName }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ formatDate(tenant.createdAt) }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ tenant.createdBy }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">
+                  {{ tenant.workspaceCount }} / {{ tenant.workspaceLimit }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">
+                  {{ tenant.userCount }} / {{ tenant.userLimit }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span 
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
                   :class="{
-                    'bg-green-500': usagePercentage(resource) < 70,
-                    'bg-yellow-500': usagePercentage(resource) >= 70 && usagePercentage(resource) < 90,
-                    'bg-red-500': usagePercentage(resource) >= 90
+                    'bg-green-100 text-green-800': tenant.status === 'Active',
+                    'bg-red-100 text-red-800': tenant.status === 'Stopped'
                   }"
-                  :style="{ width: `${usagePercentage(resource)}%` }"
-                ></div>
-              </div>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p class="text-gray-500">Limit</p>
-                <p class="font-medium">{{ resource.limit }}</p>
-              </div>
-              <div>
-                <p class="text-gray-500">Used</p>
-                <p class="font-medium">{{ resource.used }}</p>
-              </div>
-            </div>
-            
-            <div class="pt-4 border-t border-gray-200">
-              <span 
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                :class="{
-                  'bg-green-100 text-green-800': resource.status === 'active',
-                  'bg-yellow-100 text-yellow-800': resource.status === 'warning',
-                  'bg-red-100 text-red-800': resource.status === 'critical'
-                }"
-              >
-                {{ resource.status }}
-              </span>
-            </div>
-          </div>
-        </div>
+                >
+                  {{ tenant.status }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button 
+                  v-if="tenant.status === 'Active'"
+                  @click="stopTenant(tenant.id)"
+                  class="text-yellow-600 hover:text-yellow-900 mr-2"
+                >
+                  Stop
+                </button>
+                <button 
+                  @click="deleteTenant(tenant.id)"
+                  class="text-red-600 hover:text-red-900"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       
-      <!-- New Resource Modal -->
-      <div v-if="showNewResourceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-          <h2 class="text-xl font-bold mb-4">Add New Resource</h2>
-          
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Resource Name</label>
-              <input 
-                v-model="newResource.name"
-                type="text"
-                class="input"
-                placeholder="Enter resource name"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <select v-model="newResource.type" class="input">
-                <option v-for="type in resourceTypes" :key="type.value" :value="type.value">
-                  {{ type.label }}
-                </option>
-              </select>
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Limit</label>
-              <input 
-                v-model.number="newResource.limit"
-                type="number"
-                class="input"
-                min="0"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select v-model="newResource.status" class="input">
-                <option value="active">Active</option>
-                <option value="warning">Warning</option>
-                <option value="critical">Critical</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="flex justify-end space-x-2 mt-6">
-            <button 
-              @click="showNewResourceModal = false"
-              class="btn btn-secondary"
-            >
-              Cancel
-            </button>
-            <button 
-              @click="createResource"
-              class="btn btn-primary"
-              :disabled="loading"
-            >
-              {{ loading ? 'Creating...' : 'Create' }}
-            </button>
-          </div>
-        </div>
+      <!-- Workspace Management Tab -->
+      <div v-else-if="activeTab === 'workspace'" class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Workspace Name
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Workspace ID
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Workspace Key
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Type
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created Date
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created By
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Max Apps
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Assignment
+              </th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="workspace in workspaces" :key="workspace.id">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{{ workspace.name }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ workspace.id }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ workspace.key }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ workspace.type }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ formatDate(workspace.createdAt) }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ workspace.createdBy }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ workspace.maxApps }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">
+                  {{ workspace.assignedCount }} / {{ workspace.unassignedCount }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button 
+                  v-if="!workspace.assigned"
+                  @click="assignWorkspace(workspace.id)"
+                  class="text-primary hover:text-primary-dark mr-2"
+                >
+                  Assign
+                </button>
+                <button 
+                  v-else
+                  @click="unassignWorkspace(workspace.id)"
+                  class="text-yellow-600 hover:text-yellow-900"
+                >
+                  Unassign
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       
-      <!-- Edit Resource Modal -->
-      <div v-if="showEditResourceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-          <h2 class="text-xl font-bold mb-4">Edit Resource</h2>
-          
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Resource Name</label>
-              <input 
-                v-model="editingResource.name"
-                type="text"
-                class="input"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <select v-model="editingResource.type" class="input">
-                <option v-for="type in resourceTypes" :key="type.value" :value="type.value">
-                  {{ type.label }}
-                </option>
-              </select>
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Limit</label>
-              <input 
-                v-model.number="editingResource.limit"
-                type="number"
-                class="input"
-                min="0"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Used</label>
-              <input 
-                v-model.number="editingResource.used"
-                type="number"
-                class="input"
-                min="0"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select v-model="editingResource.status" class="input">
-                <option value="active">Active</option>
-                <option value="warning">Warning</option>
-                <option value="critical">Critical</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="flex justify-end space-x-2 mt-6">
-            <button 
-              @click="showEditResourceModal = false"
-              class="btn btn-secondary"
-            >
-              Cancel
-            </button>
-            <button 
-              @click="updateResource"
-              class="btn btn-primary"
-              :disabled="loading"
-            >
-              {{ loading ? 'Saving...' : 'Save Changes' }}
-            </button>
-          </div>
-        </div>
+      <!-- User Management Tab -->
+      <div v-else-if="activeTab === 'user'" class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                User Name
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Email Address
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Number of Tenants
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Last Login
+              </th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="user in users" :key="user.id">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ user.email }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ user.tenantCount }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span 
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  :class="{
+                    'bg-green-100 text-green-800': user.status === 'Active',
+                    'bg-red-100 text-red-800': user.status === 'Inactive'
+                  }"
+                >
+                  {{ user.status }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">{{ formatDate(user.lastLogin) }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button 
+                  @click="reissueUserCredentials(user.id)"
+                  class="text-primary hover:text-primary-dark mr-2"
+                >
+                  Reissue
+                </button>
+                <button 
+                  @click="deleteUser(user.id)"
+                  class="text-red-600 hover:text-red-900"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

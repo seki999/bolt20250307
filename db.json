@@ -8,24 +8,50 @@
       "email": "admin@example.com",
       "company": "Example Corp",
       "role": "System Administrator",
-      "lastLogin": "2023-11-15T08:30:00Z"
+      "lastLogin": "2023-11-15T08:30:00Z",
+      "status": "Active",
+      "tenantCount": 3
     }
   ],
   "workspaces": [
     {
       "id": 1,
       "name": "Default Workspace",
-      "userId": 1
+      "userId": 1,
+      "key": "ws_key_123",
+      "type": "Development",
+      "createdAt": "2023-11-15T08:30:00Z",
+      "createdBy": "Admin User",
+      "maxApps": 10,
+      "assignedCount": 3,
+      "unassignedCount": 7,
+      "assigned": true
     },
     {
       "id": 2,
       "name": "Development Workspace",
-      "userId": 1
+      "userId": 1,
+      "key": "ws_key_456",
+      "type": "Development",
+      "createdAt": "2023-11-15T09:30:00Z",
+      "createdBy": "Admin User",
+      "maxApps": 5,
+      "assignedCount": 2,
+      "unassignedCount": 3,
+      "assigned": true
     },
     {
       "id": 3,
       "name": "Production Workspace",
-      "userId": 1
+      "userId": 1,
+      "key": "ws_key_789",
+      "type": "Production",
+      "createdAt": "2023-11-15T10:30:00Z",
+      "createdBy": "Admin User",
+      "maxApps": 15,
+      "assignedCount": 8,
+      "unassignedCount": 7,
+      "assigned": false
     }
   ],
   "apps": [
@@ -46,12 +72,44 @@
       "name": "Analytics Service",
       "status": "Stopped",
       "workspaceId": 1
+    }
+  ],
+  "tenants": [
+    {
+      "id": 1,
+      "name": "Enterprise Solutions Ltd",
+      "companyName": "Enterprise Solutions",
+      "createdAt": "2023-11-01T10:00:00Z",
+      "createdBy": "Admin User",
+      "workspaceCount": 5,
+      "workspaceLimit": 10,
+      "userCount": 25,
+      "userLimit": 50,
+      "status": "Active"
     },
     {
-      "name": "App1",
-      "status": "Stopped",
-      "workspaceId": 1,
-      "id": 4
+      "id": 2,
+      "name": "Tech Innovators Inc",
+      "companyName": "Tech Innovators",
+      "createdAt": "2023-11-05T14:30:00Z",
+      "createdBy": "Admin User",
+      "workspaceCount": 3,
+      "workspaceLimit": 5,
+      "userCount": 15,
+      "userLimit": 20,
+      "status": "Active"
+    },
+    {
+      "id": 3,
+      "name": "Digital Solutions Corp",
+      "companyName": "Digital Solutions",
+      "createdAt": "2023-11-10T09:15:00Z",
+      "createdBy": "Admin User",
+      "workspaceCount": 2,
+      "workspaceLimit": 8,
+      "userCount": 10,
+      "userLimit": 30,
+      "status": "Stopped"
     }
   ],
   "tables": [
@@ -138,38 +196,6 @@
       "method": "GET",
       "tableId": 1,
       "workspaceId": 1
-    },
-    {
-      "name": "Endpoint1",
-      "destination": "local8080",
-      "apiKey": "asd3r33233",
-      "type": "http",
-      "workspaceId": 1,
-      "id": 3
-    },
-    {
-      "name": "Endpoint2",
-      "destination": "local8090",
-      "apiKey": "casdc2332233323",
-      "type": "http",
-      "workspaceId": 1,
-      "id": 4
-    },
-    {
-      "name": "TableAPIEndpoint1",
-      "destination": "localHost0100",
-      "apiKey": "aasads32323332",
-      "type": "table",
-      "workspaceId": 1,
-      "id": 5
-    },
-    {
-      "name": "TableAPIEndpoint2",
-      "destination": "localHost0010",
-      "apiKey": "43fssdr3sadasd",
-      "type": "table",
-      "workspaceId": 1,
-      "id": 6
     }
   ],
   "messageBlockers": [
