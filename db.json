@@ -46,6 +46,12 @@
       "name": "Analytics Service",
       "status": "Stopped",
       "workspaceId": 1
+    },
+    {
+      "name": "App1",
+      "status": "Stopped",
+      "workspaceId": 1,
+      "id": 4
     }
   ],
   "tables": [
@@ -132,6 +138,38 @@
       "method": "GET",
       "tableId": 1,
       "workspaceId": 1
+    },
+    {
+      "name": "Endpoint1",
+      "destination": "local8080",
+      "apiKey": "asd3r33233",
+      "type": "http",
+      "workspaceId": 1,
+      "id": 3
+    },
+    {
+      "name": "Endpoint2",
+      "destination": "local8090",
+      "apiKey": "casdc2332233323",
+      "type": "http",
+      "workspaceId": 1,
+      "id": 4
+    },
+    {
+      "name": "TableAPIEndpoint1",
+      "destination": "localHost0100",
+      "apiKey": "aasads32323332",
+      "type": "table",
+      "workspaceId": 1,
+      "id": 5
+    },
+    {
+      "name": "TableAPIEndpoint2",
+      "destination": "localHost0010",
+      "apiKey": "43fssdr3sadasd",
+      "type": "table",
+      "workspaceId": 1,
+      "id": 6
     }
   ],
   "messageBlockers": [
