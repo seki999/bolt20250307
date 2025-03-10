@@ -17,6 +17,14 @@ const showNewTenantModal = ref(false)
 const showEditTenantModal = ref(false)
 const editingTenant = ref(null)
 
+// New Tenant Data
+const newTenant = ref({
+  name: '',
+  companyName: '',
+  workspaceLimit: 5,
+  userLimit: 20
+})
+
 // Workspace Management Data
 const workspaces = ref([])
 const showAssignWorkspaceModal = ref(false)
@@ -77,6 +85,44 @@ function formatDate(dateString: string) {
 }
 
 // Tenant Management Functions
+async function createTenant() {
+  if (!newTenant.value.name || !newTenant.value.companyName) {
+    error.value = 'Name and Company Name are required'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+  success.value = ''
+
+  try {
+    await axios.post('http://localhost:3001/tenants', {
+      ...newTenant.value,
+      createdAt: new Date().toISOString(),
+      createdBy: authStore.user?.name || 'Admin User',
+      workspaceCount: 0,
+      userCount: 0,
+      status: 'Active'
+    })
+
+    showNewTenantModal.value = false
+    success.value = 'Tenant created successfully'
+    await fetchTenants()
+
+    // Reset form
+    newTenant.value = {
+      name: '',
+      companyName: '',
+      workspaceLimit: 5,
+      userLimit: 20
+    }
+  } catch (err) {
+    error.value = 'Failed to create tenant'
+  } finally {
+    loading.value = false
+  }
+}
+
 async function stopTenant(tenantId: number) {
   try {
     await axios.put(`http://localhost:3001/tenants/${tenantId}`, { status: 'Stopped' })
@@ -197,89 +243,171 @@ async function reissueUserCredentials(userId: number) {
       </div>
       
       <!-- Tenant Management Tab -->
-      <div v-else-if="activeTab === 'tenant'" class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tenant Name
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Company Name
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created Date
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created By
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Workspaces
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Users
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="tenant in tenants" :key="tenant.id">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ tenant.companyName }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ formatDate(tenant.createdAt) }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ tenant.createdBy }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">
-                  {{ tenant.workspaceCount }} / {{ tenant.workspaceLimit }}
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">
-                  {{ tenant.userCount }} / {{ tenant.userLimit }}
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span 
-                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                  :class="{
-                    'bg-green-100 text-green-800': tenant.status === 'Active',
-                    'bg-red-100 text-red-800': tenant.status === 'Stopped'
-                  }"
-                >
-                  {{ tenant.status }}
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button 
-                  v-if="tenant.status === 'Active'"
-                  @click="stopTenant(tenant.id)"
-                  class="text-yellow-600 hover:text-yellow-900 mr-2"
-                >
-                  Stop
-                </button>
-                <button 
-                  @click="deleteTenant(tenant.id)"
-                  class="text-red-600 hover:text-red-900"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else-if="activeTab === 'tenant'" class="space-y-4">
+        <!-- Create Tenant Button -->
+        <div class="flex justify-end mb-4">
+          <button 
+            @click="showNewTenantModal = true"
+            class="btn btn-primary"
+          >
+            Create New Tenant
+          </button>
+        </div>
+
+        <!-- Tenants Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tenant Name
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Company Name
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created Date
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created By
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Workspaces
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Users
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="tenant in tenants" :key="tenant.id">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ tenant.companyName }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ formatDate(tenant.createdAt) }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ tenant.createdBy }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">
+                    {{ tenant.workspaceCount }} / {{ tenant.workspaceLimit }}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">
+                    {{ tenant.userCount }} / {{ tenant.userLimit }}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span 
+                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                    :class="{
+                      'bg-green-100 text-green-800': tenant.status === 'Active',
+                      'bg-red-100 text-red-800': tenant.status === 'Stopped'
+                    }"
+                  >
+                    {{ tenant.status }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <button 
+                    v-if="tenant.status === 'Active'"
+                    @click="stopTenant(tenant.id)"
+                    class="text-yellow-600 hover:text-yellow-900 mr-2"
+                  >
+                    Stop
+                  </button>
+                  <button 
+                    @click="deleteTenant(tenant.id)"
+                    class="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- New Tenant Modal -->
+        <div v-if="showNewTenantModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold mb-4">Create New Tenant</h2>
+            
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tenant Name</label>
+                <input 
+                  v-model="newTenant.name"
+                  type="text"
+                  class="input"
+                  placeholder="Enter tenant name"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                <input 
+                  v-model="newTenant.companyName"
+                  type="text"
+                  class="input"
+                  placeholder="Enter company name"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Workspace Limit</label>
+                <input 
+                  v-model.number="newTenant.workspaceLimit"
+                  type="number"
+                  min="1"
+                  class="input"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">User Limit</label>
+                <input 
+                  v-model.number="newTenant.userLimit"
+                  type="number"
+                  min="1"
+                  class="input"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div class="flex justify-end space-x-2 mt-6">
+              <button 
+                @click="showNewTenantModal = false"
+                class="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button 
+                @click="createTenant"
+                class="btn btn-primary"
+                :disabled="loading"
+              >
+                {{ loading ? 'Creating...' : 'Create Tenant' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- Workspace Management Tab -->
