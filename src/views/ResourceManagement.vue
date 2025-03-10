@@ -245,7 +245,7 @@ async function reissueUserCredentials(userId: number) {
       <!-- Tenant Management Tab -->
       <div v-else-if="activeTab === 'tenant'" class="space-y-4">
         <!-- Create Tenant Button -->
-        <div class="flex justify-end mb-4">
+        <div class="flex justify-start mb-4">
           <button 
             @click="showNewTenantModal = true"
             class="btn btn-primary"
