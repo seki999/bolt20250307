@@ -4,11 +4,11 @@
       "id": 1,
       "username": "admin",
       "password": "admin123",
-      "name": "Admin User",
-      "email": "admin@example.com",
-      "company": "Example Corp",
-      "role": "System Administrator",
-      "lastLogin": "2023-11-15T08:30:00Z",
+      "name": "行田",
+      "email": "kouda@softbank.com",
+      "company": "ソフトバンク株式会社",
+      "role": "システム管理者",
+      "lastLogin": "3/12/2025, 6:17:55 PM",
       "status": "Active",
       "tenantCount": 3
     }
