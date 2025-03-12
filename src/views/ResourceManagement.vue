@@ -14,7 +14,7 @@ const success = ref('')
 // Tenant Management Data
 const tenants = ref([])
 const expandedTenants = ref(new Set())
-const tenantWorkspaces = ref({}) // Map of tenant ID to workspaces
+const tenantWorkspaces = ref({})
 const showNewTenantModal = ref(false)
 const showEditTenantModal = ref(false)
 const editingTenant = ref(null)
@@ -27,8 +27,10 @@ const newTenant = ref({
   userLimit: 20
 })
 
-// Workspace Management Data
-const workspaces = ref([])
+// Physical Workspace Management Data
+const physicalWorkspaces = ref([])
+const expandedWorkspaces = ref(new Set())
+const logicalWorkspaces = ref({})
 const showAssignWorkspaceModal = ref(false)
 const selectedWorkspace = ref(null)
 
@@ -49,7 +51,7 @@ async function fetchData() {
         await fetchTenants()
         break
       case 'workspace':
-        await fetchWorkspaces()
+        await fetchPhysicalWorkspaces()
         break
       case 'user':
         await fetchUsers()
@@ -66,7 +68,6 @@ async function fetchTenants() {
   const response = await axios.get('http://localhost:3001/tenants')
   tenants.value = response.data
   
-  // Fetch workspaces for expanded tenants
   for (const tenantId of expandedTenants.value) {
     await fetchTenantWorkspaces(tenantId)
   }
@@ -93,9 +94,34 @@ async function toggleTenantExpansion(tenantId: number) {
   }
 }
 
-async function fetchWorkspaces() {
+async function fetchPhysicalWorkspaces() {
   const response = await axios.get('http://localhost:3001/workspaces')
-  workspaces.value = response.data
+  physicalWorkspaces.value = response.data
+  
+  for (const workspaceId of expandedWorkspaces.value) {
+    await fetchLogicalWorkspaces(workspaceId)
+  }
+}
+
+async function fetchLogicalWorkspaces(physicalWorkspaceId: number) {
+  try {
+    const response = await axios.get('http://localhost:3001/workspaces/logical', {
+      params: { physicalWorkspaceId }
+    })
+    logicalWorkspaces.value[physicalWorkspaceId] = response.data
+  } catch (err) {
+    console.error('Failed to fetch logical workspaces:', err)
+  }
+}
+
+async function toggleWorkspaceExpansion(workspaceId: number) {
+  if (expandedWorkspaces.value.has(workspaceId)) {
+    expandedWorkspaces.value.delete(workspaceId)
+    delete logicalWorkspaces.value[workspaceId]
+  } else {
+    expandedWorkspaces.value.add(workspaceId)
+    await fetchLogicalWorkspaces(workspaceId)
+  }
 }
 
 async function fetchUsers() {
@@ -137,7 +163,6 @@ async function createTenant() {
     success.value = 'Tenant created successfully'
     await fetchTenants()
 
-    // Reset form
     newTenant.value = {
       name: '',
       companyName: '',
@@ -174,24 +199,21 @@ async function deleteTenant(tenantId: number) {
 }
 
 // Workspace Management Functions
-async function assignWorkspace(workspaceId: number) {
+async function deleteLogicalWorkspace(workspaceId: number) {
+  if (!confirm('Are you sure you want to delete this logical workspace?')) return
+  
   try {
-    await axios.put(`http://localhost:3001/workspaces/${workspaceId}/assign`)
-    success.value = 'Workspace assigned successfully'
-    await fetchWorkspaces()
+    await axios.delete(`http://localhost:3001/workspaces/logical/${workspaceId}`)
+    success.value = 'Logical workspace deleted successfully'
+    await fetchPhysicalWorkspaces()
   } catch (err) {
-    error.value = 'Failed to assign workspace'
+    error.value = 'Failed to delete logical workspace'
   }
 }
 
-async function unassignWorkspace(workspaceId: number) {
-  try {
-    await axios.put(`http://localhost:3001/workspaces/${workspaceId}/unassign`)
-    success.value = 'Workspace unassigned successfully'
-    await fetchWorkspaces()
-  } catch (err) {
-    error.value = 'Failed to unassign workspace'
-  }
+async function editLogicalWorkspace(workspace) {
+  // Implement edit functionality
+  console.log('Edit workspace:', workspace)
 }
 
 // User Management Functions
@@ -526,13 +548,14 @@ async function reissueUserCredentials(userId: number) {
         </div>
       </div>
       
-      <!-- Workspace Management Tab -->
+      <!-- Physical Workspace Management Tab -->
       <div v-else-if="activeTab === 'workspace'" class="bg-white rounded-lg shadow overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th scope="col" class="w-8 px-6 py-3"></th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Workspace Name
+                Physical Workspace Name
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Workspace ID
@@ -555,56 +578,141 @@ async function reissueUserCredentials(userId: number) {
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Assignment
               </th>
-              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="workspace in workspaces" :key="workspace.id">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">{{ workspace.name }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ workspace.id }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ workspace.key }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ workspace.type }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ formatDate(workspace.createdAt) }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ workspace.createdBy }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">{{ workspace.maxApps }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-500">
-                  {{ workspace.assignedCount }} / {{ workspace.unassignedCount }}
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button 
-                  v-if="!workspace.assigned"
-                  @click="assignWorkspace(workspace.id)"
-                  class="text-primary hover:text-primary-dark mr-2"
-                >
-                  Assign
-                </button>
-                <button 
-                  v-else
-                  @click="unassignWorkspace(workspace.id)"
-                  class="text-yellow-600 hover:text-yellow-900"
-                >
-                  Unassign
-                </button>
-              </td>
-            </tr>
+            <template v-for="workspace in physicalWorkspaces" :key="workspace.id">
+              <!-- Physical Workspace Row -->
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <button 
+                    @click="toggleWorkspaceExpansion(workspace.id)"
+                    class="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    <svg 
+                      class="w-4 h-4 transform transition-transform"
+                      :class="{ 'rotate-90': expandedWorkspaces.has(workspace.id) }"
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{ workspace.name }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ workspace.id }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ workspace.key }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ workspace.type }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ formatDate(workspace.createdAt) }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ workspace.createdBy }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ workspace.maxApps }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">
+                    {{ workspace.assignedCount }} / {{ workspace.unassignedCount }}
+                  </div>
+                </td>
+              </tr>
+              
+              <!-- Logical Workspace Sub-rows -->
+              <tr v-if="expandedWorkspaces.has(workspace.id)" class="bg-gray-50">
+                <td colspan="9" class="px-6 py-4">
+                  <div class="border rounded-lg overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-100">
+                        <tr>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Logical Workspace Name
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Belonging Tenant
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Created Date
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Created By
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Max Apps
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Running Apps
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-gray-200">
+                        <tr v-for="logical in logicalWorkspaces[workspace.id]" :key="logical.id">
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ logical.name }}</div>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ logical.tenantName }}</div>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ formatDate(logical.createdAt) }}</div>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ logical.createdBy }}</div>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ logical.maxApps }}</div>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ logical.runningApps }}</div>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap">
+                            <span 
+                              class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                              :class="{
+                                'bg-green-100 text-green-800': logical.status === 'Active',
+                                'bg-yellow-100 text-yellow-800': logical.status === 'Inactive'
+                              }"
+                            >
+                              {{ logical.status }}
+                            </span>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button 
+                              @click="editLogicalWorkspace(logical)"
+                              class="text-primary hover:text-primary-dark mr-2"
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              @click="deleteLogicalWorkspace(logical.id)"
+                              class="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
