@@ -202,6 +202,22 @@
       "method": "GET",
       "tableId": 1,
       "workspaceId": 1
+    },
+    {
+      "name": "EndpointName1",
+      "destination": "local1",
+      "apiKey": "sd332ds23332233sss",
+      "type": "http",
+      "workspaceId": 1,
+      "id": 3
+    },
+    {
+      "name": "EndpointName1",
+      "destination": "local",
+      "apiKey": "33edeassasas",
+      "type": "table",
+      "workspaceId": 1,
+      "id": 4
     }
   ],
   "messageBlockers": [
