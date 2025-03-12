@@ -2,9 +2,25 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
 
+// Define an interface for the Workspace object
+interface Workspace {
+  id: number;
+  name: string;
+  userId: number;
+  key: string;
+  type: string;
+  createdAt: string;
+  createdBy: string;
+  maxApps: number;
+  assignedCount: number;
+  unassignedCount: number;
+  assigned:boolean;
+  // Add other properties if needed
+}
+
 export const useWorkspaceStore = defineStore('workspace', () => {
-  const workspaces = ref([])
-  const currentWorkspace = ref(null)
+  const workspaces = ref<Workspace[]>([])
+  const currentWorkspace = ref<Workspace | null>(null)
   const loading = ref(false)
   const error = ref('')
 
@@ -18,9 +34,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       })
       
       workspaces.value = response.data
-      
-      if (workspaces.value.length > 0 && !currentWorkspace.value) {
-        currentWorkspace.value = workspaces.value[0]
+      // Check if response.data is not null or undefined before accessing its length
+      if (Array.isArray(response.data) && response.data.length > 0 && !currentWorkspace.value) {
+          currentWorkspace.value = workspaces.value[0];
       }
     } catch (err) {
       error.value = 'Failed to fetch workspaces'
@@ -29,7 +45,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-  function setCurrentWorkspace(workspace) {
+  function setCurrentWorkspace(workspace: Workspace) {
     currentWorkspace.value = workspace
   }
 
