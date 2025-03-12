@@ -6,13 +6,15 @@ import axios from 'axios'
 
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
-const activeTab = ref('tenant') // 'tenant', 'workspace', or 'user'
+const activeTab = ref('tenant')
 const loading = ref(false)
 const error = ref('')
 const success = ref('')
 
 // Tenant Management Data
 const tenants = ref([])
+const expandedTenants = ref(new Set())
+const tenantWorkspaces = ref({}) // Map of tenant ID to workspaces
 const showNewTenantModal = ref(false)
 const showEditTenantModal = ref(false)
 const editingTenant = ref(null)
@@ -63,6 +65,32 @@ async function fetchData() {
 async function fetchTenants() {
   const response = await axios.get('http://localhost:3001/tenants')
   tenants.value = response.data
+  
+  // Fetch workspaces for expanded tenants
+  for (const tenantId of expandedTenants.value) {
+    await fetchTenantWorkspaces(tenantId)
+  }
+}
+
+async function fetchTenantWorkspaces(tenantId: number) {
+  try {
+    const response = await axios.get('http://localhost:3001/workspaces', {
+      params: { tenantId }
+    })
+    tenantWorkspaces.value[tenantId] = response.data
+  } catch (err) {
+    console.error('Failed to fetch tenant workspaces:', err)
+  }
+}
+
+async function toggleTenantExpansion(tenantId: number) {
+  if (expandedTenants.value.has(tenantId)) {
+    expandedTenants.value.delete(tenantId)
+    delete tenantWorkspaces.value[tenantId]
+  } else {
+    expandedTenants.value.add(tenantId)
+    await fetchTenantWorkspaces(tenantId)
+  }
 }
 
 async function fetchWorkspaces() {
@@ -245,7 +273,7 @@ async function reissueUserCredentials(userId: number) {
       <!-- Tenant Management Tab -->
       <div v-else-if="activeTab === 'tenant'" class="space-y-4">
         <!-- Create Tenant Button -->
-        <div class="flex justify-start mb-4">
+        <div class="flex justify-end mb-4">
           <button 
             @click="showNewTenantModal = true"
             class="btn btn-primary"
@@ -259,6 +287,7 @@ async function reissueUserCredentials(userId: number) {
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
+                <th scope="col" class="w-8 px-6 py-3"></th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tenant Name
                 </th>
@@ -286,56 +315,143 @@ async function reissueUserCredentials(userId: number) {
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="tenant in tenants" :key="tenant.id">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-500">{{ tenant.companyName }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-500">{{ formatDate(tenant.createdAt) }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-500">{{ tenant.createdBy }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-500">
-                    {{ tenant.workspaceCount }} / {{ tenant.workspaceLimit }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-500">
-                    {{ tenant.userCount }} / {{ tenant.userLimit }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span 
-                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                    :class="{
-                      'bg-green-100 text-green-800': tenant.status === 'Active',
-                      'bg-red-100 text-red-800': tenant.status === 'Stopped'
-                    }"
-                  >
-                    {{ tenant.status }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button 
-                    v-if="tenant.status === 'Active'"
-                    @click="stopTenant(tenant.id)"
-                    class="text-yellow-600 hover:text-yellow-900 mr-2"
-                  >
-                    Stop
-                  </button>
-                  <button 
-                    @click="deleteTenant(tenant.id)"
-                    class="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
+              <template v-for="tenant in tenants" :key="tenant.id">
+                <!-- Tenant Row -->
+                <tr>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <button 
+                      @click="toggleTenantExpansion(tenant.id)"
+                      class="text-gray-500 hover:text-gray-700 focus:outline-none"
+                    >
+                      <svg 
+                        class="w-4 h-4 transform transition-transform"
+                        :class="{ 'rotate-90': expandedTenants.has(tenant.id) }"
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-500">{{ tenant.companyName }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-500">{{ formatDate(tenant.createdAt) }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-500">{{ tenant.createdBy }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-500">
+                      {{ tenant.workspaceCount }} / {{ tenant.workspaceLimit }}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-500">
+                      {{ tenant.userCount }} / {{ tenant.userLimit }}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span 
+                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      :class="{
+                        'bg-green-100 text-green-800': tenant.status === 'Active',
+                        'bg-red-100 text-red-800': tenant.status === 'Stopped'
+                      }"
+                    >
+                      {{ tenant.status }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button 
+                      v-if="tenant.status === 'Active'"
+                      @click="stopTenant(tenant.id)"
+                      class="text-yellow-600 hover:text-yellow-900 mr-2"
+                    >
+                      Stop
+                    </button>
+                    <button 
+                      @click="deleteTenant(tenant.id)"
+                      class="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+                
+                <!-- Workspace Sub-rows -->
+                <tr v-if="expandedTenants.has(tenant.id)" class="bg-gray-50">
+                  <td colspan="9" class="px-6 py-4">
+                    <div class="border rounded-lg overflow-hidden">
+                      <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                          <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Logical Workspace Name
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Type
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Created Date
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Created By
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Max Apps
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Running Apps
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                          <tr v-for="workspace in tenantWorkspaces[tenant.id]" :key="workspace.id">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <div class="text-sm text-gray-900">{{ workspace.name }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <div class="text-sm text-gray-500">{{ workspace.type }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <div class="text-sm text-gray-500">{{ formatDate(workspace.createdAt) }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <div class="text-sm text-gray-500">{{ workspace.createdBy }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <div class="text-sm text-gray-500">{{ workspace.maxApps }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <div class="text-sm text-gray-500">{{ workspace.assignedCount }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <span 
+                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                :class="{
+                                  'bg-green-100 text-green-800': workspace.assigned,
+                                  'bg-yellow-100 text-yellow-800': !workspace.assigned
+                                }"
+                              >
+                                {{ workspace.assigned ? 'Active' : 'Inactive' }}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
