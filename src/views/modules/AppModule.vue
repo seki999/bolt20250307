@@ -88,9 +88,9 @@ function openEditModal(app) {
 }
 
 function toggleAppStatus(app) {
-  const updatedApp = { 
-    ...app, 
-    status: app.status === 'Running' ? 'Stopped' : 'Running' 
+  const updatedApp = {
+    ...app,
+    status: app.status === 'Running' ? 'Stopped' : 'Running'
   }
   
   axios.put(`http://localhost:3001/apps/${app.id}`, updatedApp)
@@ -105,10 +105,7 @@ function toggleAppStatus(app) {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-800">Apps</h1>
-      <button 
-        @click="showNewAppModal = true"
-        class="btn btn-primary"
-      >
+      <button @click="showNewAppModal = true" class="btn btn-primary">
         New App
       </button>
     </div>
@@ -120,40 +117,43 @@ function toggleAppStatus(app) {
     <div v-if="loading" class="flex justify-center my-8">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
     </div>
-    
+
     <div v-else-if="apps.length === 0" class="text-center my-8 text-gray-500">
       No apps found. Create a new app to get started.
     </div>
-    
-    <div v-else class="space-y-4">
-      <div 
-        v-for="app in apps" 
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Changed to grid layout -->
+      <div
+        v-for="app in apps"
         :key="app.id"
-        class="bg-white rounded-lg shadow p-4 flex items-center justify-between"
+        class="bg-white rounded-lg shadow p-4 flex flex-col justify-between"
       >
-        <div class="flex items-center space-x-4">
-          <div 
+        <!-- flex-col and justify-between for vertical alignment -->
+        <div>
+        <div class="flex items-center space-x-4 mb-4">
+          <div
             class="w-3 h-3 rounded-full"
             :class="app.status === 'Running' ? 'bg-green-500' : 'bg-red-500'"
           ></div>
           <span class="font-medium">{{ app.name }}</span>
           <span class="text-sm text-gray-500">{{ app.status }}</span>
         </div>
-        
-        <div class="flex space-x-2">
-          <button 
+        </div>
+        <div class="flex space-x-2 mt-auto"> <!-- mt-auto to push buttons to bottom -->
+          <button
             @click="toggleAppStatus(app)"
             class="btn btn-secondary text-sm"
           >
             {{ app.status === 'Running' ? 'Stop' : 'Start' }}
           </button>
-          <button 
+          <button
             @click="openEditModal(app)"
             class="btn btn-secondary text-sm"
           >
             Edit
           </button>
-          <button 
+          <button
             @click="deleteApp(app.id)"
             class="btn bg-red-500 text-white hover:bg-red-600 text-sm"
           >
@@ -162,75 +162,68 @@ function toggleAppStatus(app) {
         </div>
       </div>
     </div>
-    
+
     <!-- New App Modal -->
-    <div v-if="showNewAppModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div
+      v-if="showNewAppModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
       <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">Create New App</h2>
-        
+
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">App Name</label>
-          <input 
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >App Name</label
+          >
+          <input
             v-model="newAppName"
             type="text"
             class="input"
             placeholder="Enter app name"
           />
         </div>
-        
+
         <div class="flex justify-end space-x-2">
-          <button 
-            @click="showNewAppModal = false"
-            class="btn btn-secondary"
-          >
+          <button @click="showNewAppModal = false" class="btn btn-secondary">
             Cancel
           </button>
-          <button 
-            @click="createApp"
-            class="btn btn-primary"
-          >
+          <button @click="createApp" class="btn btn-primary">
             Create
           </button>
         </div>
       </div>
     </div>
-    
+
     <!-- Edit App Modal -->
-    <div v-if="showEditAppModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div
+      v-if="showEditAppModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
       <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">Edit App</h2>
-        
+
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">App Name</label>
-          <input 
-            v-model="editingApp.name"
-            type="text"
-            class="input"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <select 
-            v-model="editingApp.status"
-            class="input"
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >App Name</label
           >
+          <input v-model="editingApp.name" type="text" class="input" />
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Status</label
+          >
+          <select v-model="editingApp.status" class="input">
             <option value="Running">Running</option>
             <option value="Stopped">Stopped</option>
           </select>
         </div>
-        
+
         <div class="flex justify-end space-x-2">
-          <button 
-            @click="showEditAppModal = false"
-            class="btn btn-secondary"
-          >
+          <button @click="showEditAppModal = false" class="btn btn-secondary">
             Cancel
           </button>
-          <button 
-            @click="updateApp"
-            class="btn btn-primary"
-          >
+          <button @click="updateApp" class="btn btn-primary">
             Save
           </button>
         </div>

@@ -72,6 +72,12 @@
       "name": "Analytics Service",
       "status": "Stopped",
       "workspaceId": 1
+    },
+    {
+      "name": "app20250312",
+      "status": "Stopped",
+      "workspaceId": 1,
+      "id": 4
     }
   ],
   "tenants": [
