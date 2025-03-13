@@ -232,6 +232,34 @@
       "description": "Main MQTT Blocker",
       "topics": 5,
       "workspaceId": 1
+    },
+    {
+      "username": "mqttuser2",
+      "password": "1223233",
+      "ipWhitelist": [
+        "192.168.0.0"
+      ],
+      "description": "mqttuser2",
+      "topics": 4,
+      "topicDetails": [
+        {
+          "topic": "/sensors/temperature",
+          "description": "Temperature readings",
+          "permissions": "read,write"
+        },
+        {
+          "topic": "/sensors/humidity",
+          "description": "Humidity readings",
+          "permissions": "read"
+        },
+        {
+          "topic": "/actuators/lights",
+          "description": "Light controls",
+          "permissions": "write"
+        }
+      ],
+      "workspaceId": 1,
+      "id": 2
     }
   ],
   "apiKeys": [

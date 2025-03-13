@@ -38,6 +38,13 @@ const newTopic = ref({
   permissions: 'read'
 })
 
+// New topic input for the new blocker modal
+const newBlockerTopic = ref({
+  topic: '',
+  description: '',
+  permissions: 'read'
+})
+
 const currentWorkspaceId = computed(() => {
   return workspaceStore.currentWorkspace?.id
 })
@@ -132,11 +139,39 @@ function openNewBlockerModal() {
     topicDetails: []
   }
   ipInput.value = ''
+  newBlockerTopic.value = {
+    topic: '',
+    description: '',
+    permissions: 'read'
+  }
   showNewBlockerModal.value = true
 }
 
+function addTopicToNewBlocker() {
+  if (!newBlockerTopic.value.topic || !newBlockerTopic.value.description) return
+  
+  newBlocker.value.topicDetails.push({ ...newBlockerTopic.value })
+  newBlocker.value.topics = newBlocker.value.topicDetails.length
+  newBlockerTopic.value = {
+    topic: '',
+    description: '',
+    permissions: 'read'
+  }
+}
+
+function removeTopicFromNewBlocker(topic: string) {
+  newBlocker.value.topicDetails = newBlocker.value.topicDetails.filter(t => t.topic !== topic)
+  newBlocker.value.topics = newBlocker.value.topicDetails.length
+}
+
 async function createMessageBlocker() {
-  if (!newBlocker.value.username || !newBlocker.value.password || !currentWorkspaceId.value) return
+  if (!newBlocker.value.username || !newBlocker.value.password || !currentWorkspaceId.value) {
+    error.value = 'Username and password are required'
+    return
+  }
+  
+  loading.value = true
+  error.value = ''
   
   try {
     await axios.post('http://localhost:3001/messageBlockers', {
@@ -148,6 +183,8 @@ async function createMessageBlocker() {
     await fetchMessageBlockers()
   } catch (err) {
     error.value = 'Failed to create message blocker'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -185,6 +222,7 @@ function addTopicToEditingBlocker() {
   if (!editingBlocker.value || !newTopic.value.topic || !newTopic.value.description) return
   
   editingBlocker.value.topicDetails.push({ ...newTopic.value })
+  editingBlocker.value.topics = editingBlocker.value.topicDetails.length
   newTopic.value = {
     topic: '',
     description: '',
@@ -195,6 +233,7 @@ function addTopicToEditingBlocker() {
 function removeTopicFromEditingBlocker(topic: string) {
   if (!editingBlocker.value) return
   editingBlocker.value.topicDetails = editingBlocker.value.topicDetails.filter(t => t.topic !== topic)
+  editingBlocker.value.topics = editingBlocker.value.topicDetails.length
 }
 
 function setActiveTab(tab: string) {
@@ -400,81 +439,114 @@ function setActiveTab(tab: string) {
 
       <!-- New Message Blocker Modal -->
       <div v-if="showNewBlockerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <div class="bg-white rounded-lg p-6 w-full max-w-4xl">
           <h2 class="text-xl font-bold mb-4">Create New MQTT Blocker</h2>
           
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <input 
-                v-model="newBlocker.description"
-                type="text"
-                class="input"
-                placeholder="Enter a description"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input 
-                v-model="newBlocker.username"
-                type="text"
-                class="input"
-                placeholder="MQTT username"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input 
-                v-model="newBlocker.password"
-                type="password"
-                class="input"
-                placeholder="MQTT password"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Topics</label>
-              <input 
-                v-model.number="newBlocker.topics"
-                type="number"
-                min="0"
-                class="input"
-                placeholder="Number of topics"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">IP Whitelist</label>
-              <div class="flex space-x-2 mb-2">
+          <div class="grid grid-cols-2 gap-6">
+            <!-- Basic Information -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-medium text-gray-900">Basic Information</h3>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
                 <input 
-                  v-model="ipInput"
+                  v-model="newBlocker.username"
                   type="text"
                   class="input"
-                  placeholder="192.168.1.1"
+                  placeholder="MQTT username"
+                  required
                 />
-                <button 
-                  @click="addIpToWhitelist"
-                  class="btn btn-primary whitespace-nowrap"
-                >
-                  Add IP
-                </button>
               </div>
               
-              <div class="flex flex-wrap gap-2 mt-2">
-                <div 
-                  v-for="ip in newBlocker.ipWhitelist" 
-                  :key="ip"
-                  class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100"
-                >
-                  {{ ip }}
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input 
+                  v-model="newBlocker.password"
+                  type="password"
+                  class="input"
+                  placeholder="MQTT password"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input 
+                  v-model="newBlocker.description"
+                  type="text"
+                  class="input"
+                  placeholder="Enter a description"
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">IP Whitelist</label>
+                <div class="flex space-x-2 mb-2">
+                  <input 
+                    v-model="ipInput"
+                    type="text"
+                    class="input"
+                    placeholder="192.168.1.1"
+                  />
                   <button 
-                    @click="removeIpFromWhitelist(ip)"
-                    class="ml-1 text-gray-500 hover:text-gray-700"
+                    @click="addIpToWhitelist"
+                    class="btn btn-primary whitespace-nowrap"
                   >
-                    ×
+                    Add IP
                   </button>
+                </div>
+                
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <div 
+                    v-for="ip in newBlocker.ipWhitelist" 
+                    :key="ip"
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100"
+                  >
+                    {{ ip }}
+                    <button 
+                      @click="removeIpFromWhitelist(ip)"
+                      class="ml-1 text-gray-500 hover:text-gray-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Topic Management -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-medium text-gray-900">Topic Management</h3>
+              
+              <!-- Add New Topic -->
+              <div class="space-y-2">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+                  <input 
+                    v-model="newBlockerTopic.topic"
+                    type="text"
+                    class="input"
+                    placeholder="Enter topic path"
+                  />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <input 
+                    v-model="newBlockerTopic.description"
+                    type="text"
+                    class="input"
+                    placeholder="Enter topic description"
+                  />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Permissions</label>
+                  <select v-model="newBlockerTopic.permissions" class="input">
+                    <option value="read">Read</option>
+                    <option value="write">Write</option>
+                    <option value="read,write">Read & Write</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -490,8 +562,9 @@ function setActiveTab(tab: string) {
             <button 
               @click="createMessageBlocker"
               class="btn btn-primary"
+              :disabled="loading"
             >
-              Create
+              {{ loading ? 'Creating...' : 'Create' }}
             </button>
           </div>
         </div>
