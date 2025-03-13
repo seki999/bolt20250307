@@ -32,6 +32,11 @@ const newBlocker = ref({
 const editingBlocker = ref(null)
 const ipInput = ref('')
 const editIpInput = ref('')
+const newTopic = ref({
+  topic: '',
+  description: '',
+  permissions: 'read'
+})
 
 const currentWorkspaceId = computed(() => {
   return workspaceStore.currentWorkspace?.id
@@ -176,18 +181,20 @@ async function deleteMessageBlocker(id: number) {
   }
 }
 
-async function deleteTopic(blockerId: number, topic: string) {
-  if (!confirm('Are you sure you want to delete this topic?')) return
+function addTopicToEditingBlocker() {
+  if (!editingBlocker.value || !newTopic.value.topic || !newTopic.value.description) return
   
-  try {
-    const blocker = messageBlockers.value.find(b => b.id === blockerId)
-    if (blocker) {
-      blocker.topicDetails = blocker.topicDetails.filter(t => t.topic !== topic)
-      await updateMessageBlocker(blocker)
-    }
-  } catch (err) {
-    error.value = 'Failed to delete topic'
+  editingBlocker.value.topicDetails.push({ ...newTopic.value })
+  newTopic.value = {
+    topic: '',
+    description: '',
+    permissions: 'read'
   }
+}
+
+function removeTopicFromEditingBlocker(topic: string) {
+  if (!editingBlocker.value) return
+  editingBlocker.value.topicDetails = editingBlocker.value.topicDetails.filter(t => t.topic !== topic)
 }
 
 function setActiveTab(tab: string) {
@@ -340,9 +347,6 @@ function setActiveTab(tab: string) {
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Permissions
                             </th>
-                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
                           </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -355,20 +359,6 @@ function setActiveTab(tab: string) {
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                               <div class="text-sm text-gray-500">{{ topic.permissions }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button 
-                                @click="openEditModal(topic)"
-                                class="text-primary hover:text-primary-dark mr-3"
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                @click="deleteTopic(blocker.id, topic.topic)"
-                                class="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
                             </td>
                           </tr>
                         </tbody>
@@ -509,79 +499,157 @@ function setActiveTab(tab: string) {
       
       <!-- Edit Message Blocker Modal -->
       <div v-if="showEditBlockerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <div class="bg-white rounded-lg p-6 w-full max-w-4xl">
           <h2 class="text-xl font-bold mb-4">Edit MQTT Blocker</h2>
           
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <input 
-                v-model="editingBlocker.description"
-                type="text"
-                class="input"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input 
-                v-model="editingBlocker.username"
-                type="text"
-                class="input"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input 
-                v-model="editingBlocker.password"
-                type="password"
-                class="input"
-                placeholder="Leave blank to keep current password"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Topics</label>
-              <input 
-                v-model.number="editingBlocker.topics"
-                type="number"
-                min="0"
-                class="input"
-              />
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">IP Whitelist</label>
-              <div class="flex space-x-2 mb-2">
+          <div class="grid grid-cols-2 gap-6">
+            <!-- Basic Information -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-medium text-gray-900">Basic Information</h3>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <input 
-                  v-model="editIpInput"
+                  v-model="editingBlocker.description"
                   type="text"
                   class="input"
-                  placeholder="192.168.1.1"
                 />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                <input 
+                  v-model="editingBlocker.username"
+                  type="text"
+                  class="input"
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input 
+                  v-model="editingBlocker.password"
+                  type="password"
+                  class="input"
+                  placeholder="Leave blank to keep current password"
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Topics</label>
+                <input 
+                  v-model.number="editingBlocker.topics"
+                  type="number"
+                  min="0"
+                  class="input"
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">IP Whitelist</label>
+                <div class="flex space-x-2 mb-2">
+                  <input 
+                    v-model="editIpInput"
+                    type="text"
+                    class="input"
+                    placeholder="192.168.1.1"
+                  />
+                  <button 
+                    @click="addIpToEditWhitelist"
+                    class="btn btn-primary whitespace-nowrap"
+                  >
+                    Add IP
+                  </button>
+                </div>
+                
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <div 
+                    v-for="ip in editingBlocker?.ipWhitelist" 
+                    :key="ip"
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100"
+                  >
+                    {{ ip }}
+                    <button 
+                      @click="removeIpFromEditWhitelist(ip)"
+                      class="ml-1 text-gray-500 hover:text-gray-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Topic Management -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-medium text-gray-900">Topic Management</h3>
+              
+              <!-- Add New Topic -->
+              <div class="space-y-2">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+                  <input 
+                    v-model="newTopic.topic"
+                    type="text"
+                    class="input"
+                    placeholder="Enter topic path"
+                  />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <input 
+                    v-model="newTopic.description"
+                    type="text"
+                    class="input"
+                    placeholder="Enter topic description"
+                  />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Permissions</label>
+                  <select v-model="newTopic.permissions" class="input">
+                    <option value="read">Read</option>
+                    <option value="write">Write</option>
+                    <option value="read,write">Read & Write</option>
+                  </select>
+                </div>
+                
                 <button 
-                  @click="addIpToEditWhitelist"
-                  class="btn btn-primary whitespace-nowrap"
+                  @click="addTopicToEditingBlocker"
+                  class="btn btn-primary w-full"
                 >
-                  Add IP
+                  Add Topic
                 </button>
               </div>
               
-              <div class="flex flex-wrap gap-2 mt-2">
-                <div 
-                  v-for="ip in editingBlocker?.ipWhitelist" 
-                  :key="ip"
-                  class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100"
-                >
-                  {{ ip }}
-                  <button 
-                    @click="removeIpFromEditWhitelist(ip)"
-                    class="ml-1 text-gray-500 hover:text-gray-700"
-                  >
-                    ×
-                  </button>
-                </div>
+              <!-- Topic List -->
+              <div class="border rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
+                      <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                      <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Permissions</th>
+                      <th scope="col" class="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200">
+                    <tr v-for="topic in editingBlocker?.topicDetails" :key="topic.topic">
+                      <td class="px-4 py-2 text-sm">{{ topic.topic }}</td>
+                      <td class="px-4 py-2 text-sm">{{ topic.description }}</td>
+                      <td class="px-4 py-2 text-sm">{{ topic.permissions }}</td>
+                      <td class="px-4 py-2">
+                        <button 
+                          @click="removeTopicFromEditingBlocker(topic.topic)"
+                          class="text-red-600 hover:text-red-900"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
