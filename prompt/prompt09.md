@@ -26,3 +26,19 @@ Running Apps Count
 Status
 Actions (Delete / Edit)
 Ensure that the UI dynamically updates when expanding or collapsing the Logical Workspaces under each Physical Workspace
+
+In the Message Blockers main screen, there are two tabs:
+
+Access Control
+Server Info
+When clicking Access Control, a list screen appears with the following columns:
+Username
+Password
+IP Whitelist
+Description
+Number of Topics
+Actions (Edit / Delete)
+When clicking Server Info, a list screen appears with the following columns:
+Server Configuration Information
+Configuration Value
+Ensure proper UI implementation for switching between tabs and displaying the corresponding list.
